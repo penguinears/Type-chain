@@ -1,17 +1,15 @@
 // File: src/GameHub.jsx
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
+import "./GameHub.css";
 
 const wordBank = ["apple", "eagle", "ear", "rat", "tree", "elephant", "top", "pan", "note", "egg", "giraffe", "engine"];
 
-function getRandomWord() {
-  return wordBank[Math.floor(Math.random() * wordBank.length)];
-}
+const getRandomWord = () => wordBank[Math.floor(Math.random() * wordBank.length)];
 
 const getLeaderboard = (game) => {
   const data = localStorage.getItem(`leaderboard_${game}`);
@@ -20,9 +18,7 @@ const getLeaderboard = (game) => {
 
 const saveToLeaderboard = (game, name, score) => {
   const existing = getLeaderboard(game);
-  const updated = [...existing, { name, score }]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10);
+  const updated = [...existing, { name, score }].sort((a, b) => b.score - a.score).slice(0, 10);
   localStorage.setItem(`leaderboard_${game}`, JSON.stringify(updated));
 };
 
@@ -34,11 +30,11 @@ const Leaderboard = ({ game }) => {
   }, [game]);
 
   return (
-    <div className="mt-4">
-      <h3 className="text-xl font-semibold mb-2">Leaderboard</h3>
-      <ul className="list-disc list-inside">
+    <div className="leaderboard">
+      <h3>🏆 Leaderboard</h3>
+      <ul>
         {scores.map((entry, index) => (
-          <li key={index}>{index + 1}. {entry.name} - {entry.score}</li>
+          <li key={index}><strong>{index + 1}.</strong> {entry.name} – {entry.score}</li>
         ))}
       </ul>
     </div>
@@ -53,9 +49,9 @@ const TypeChain = () => {
 
   const handleSubmit = () => {
     const lastWord = chain[chain.length - 1];
-    const lastLetter = lastWord[lastWord.length - 1];
-    if (input.toLowerCase().startsWith(lastLetter) && !chain.includes(input)) {
-      setChain([...chain, input]);
+    const lastLetter = lastWord.slice(-1);
+    if (input.toLowerCase().startsWith(lastLetter) && !chain.includes(input.toLowerCase())) {
+      setChain([...chain, input.toLowerCase()]);
       setScore(score + 1);
       setInput('');
     }
@@ -70,20 +66,18 @@ const TypeChain = () => {
   };
 
   return (
-    <Card className="p-4 max-w-xl mx-auto mt-8 shadow-2xl rounded-2xl">
-      <CardContent>
-        <h2 className="text-2xl font-bold mb-4">Type Chain</h2>
-        <p className="mb-4 text-lg">Last Word: <strong>{chain[chain.length - 1]}</strong></p>
-        <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type next word..." />
-        <Button className="mt-2" onClick={handleSubmit}>Submit</Button>
-        <p className="mt-4 text-md">Score: {score}</p>
-        <div className="flex gap-2 mt-2">
-          <Input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Your name" />
-          <Button onClick={handleSave}>Save Score</Button>
-        </div>
-        <Leaderboard game="typeChain" />
-      </CardContent>
-    </Card>
+    <motion.div className="game-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <h2>🔗 Type Chain</h2>
+      <p>Last word: <strong>{chain[chain.length - 1]}</strong></p>
+      <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type a word..." />
+      <Button onClick={handleSubmit} className="mt-2">Submit</Button>
+      <p>Score: {score}</p>
+      <div className="name-save">
+        <Input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Your name" />
+        <Button onClick={handleSave}>Save</Button>
+      </div>
+      <Leaderboard game="typeChain" />
+    </motion.div>
   );
 };
 
@@ -98,15 +92,12 @@ const TypeNinja = () => {
     setText(generateParagraph());
   }, []);
 
-  const generateParagraph = () => {
-    return Array.from({ length: 20 }, () => getRandomWord()).join(' ');
-  };
+  const generateParagraph = () => Array.from({ length: 20 }, () => getRandomWord()).join(' ');
 
   const handleTyping = (e) => {
     const value = e.target.value;
     if (!startTime) setStartTime(Date.now());
     setInput(value);
-
     if (value.trim() === text.trim()) {
       const timeTaken = (Date.now() - startTime) / 1000;
       const words = text.split(' ').length;
@@ -125,41 +116,41 @@ const TypeNinja = () => {
   };
 
   return (
-    <Card className="p-4 max-w-xl mx-auto mt-8 shadow-2xl rounded-2xl">
-      <CardContent>
-        <h2 className="text-2xl font-bold mb-4">Type Ninja</h2>
-        <p className="mb-4 text-lg">{text}</p>
-        <textarea
-          className="w-full p-2 border rounded-lg"
-          rows={4}
-          value={input}
-          onChange={handleTyping}
-          placeholder="Start typing..."
-        />
-        <p className="mt-4 text-md">WPM: {score}</p>
-        <div className="flex gap-2 mt-2">
-          <Input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Your name" />
-          <Button onClick={handleSave}>Save Score</Button>
-        </div>
-        <Leaderboard game="typeNinja" />
-      </CardContent>
-    </Card>
+    <motion.div className="game-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <h2>🥷 Type Ninja</h2>
+      <p className="paragraph-box">{text}</p>
+      <textarea
+        value={input}
+        onChange={handleTyping}
+        className="typing-box"
+        placeholder="Type here..."
+      />
+      <p>WPM: {score}</p>
+      <div className="name-save">
+        <Input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Your name" />
+        <Button onClick={handleSave}>Save</Button>
+      </div>
+      <Leaderboard game="typeNinja" />
+    </motion.div>
   );
 };
 
 export default function GameHub() {
   return (
-    <Tabs defaultValue="typeChain" className="w-full mt-8">
-      <TabsList className="flex justify-center mb-4">
-        <TabsTrigger value="typeChain">Type Chain</TabsTrigger>
-        <TabsTrigger value="typeNinja">Type Ninja</TabsTrigger>
-      </TabsList>
-      <TabsContent value="typeChain">
-        <TypeChain />
-      </TabsContent>
-      <TabsContent value="typeNinja">
-        <TypeNinja />
-      </TabsContent>
-    </Tabs>
+    <div className="main-container">
+      <h1 className="title">⚡ Type Master</h1>
+      <Tabs defaultValue="typeChain">
+        <TabsList className="tab-list">
+          <TabsTrigger value="typeChain">Type Chain</TabsTrigger>
+          <TabsTrigger value="typeNinja">Type Ninja</TabsTrigger>
+        </TabsList>
+        <TabsContent value="typeChain">
+          <TypeChain />
+        </TabsContent>
+        <TabsContent value="typeNinja">
+          <TypeNinja />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
