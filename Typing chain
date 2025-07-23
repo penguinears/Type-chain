@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ChainType</title>
+  <style>
+    :root {
+      --bg: #0e0e0e;
+      --card: rgba(255, 255, 255, 0.05);
+      --primary: #00ffe1;
+      --accent: #ffffff;
+      --font: 'Segoe UI', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--accent);
+      font-family: var(--font);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      color: var(--primary);
+      margin-bottom: 1rem;
+    }
+
+    .card {
+      background: var(--card);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #word {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      color: var(--accent);
+    }
+
+    input {
+      padding: 0.75rem;
+      font-size: 1.2rem;
+      width: 100%;
+      border-radius: 8px;
+      border: none;
+      background: #1a1a1a;
+      color: var(--primary);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      background-color: var(--primary);
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 1rem;
+    }
+
+    button:hover {
+      background-color: #00d4c3;
+    }
+
+    #score {
+      margin-top: 0.5rem;
+      font-weight: bold;
+      color: #ccc;
+    }
+
+    .leaderboard {
+      margin-top: 2rem;
+      text-align: center;
+      width: 100%;
+    }
+
+    .leaderboard h2 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary);
+    }
+
+    .leaderboard ol {
+      list-style: decimal;
+      padding-left: 1.2rem;
+      margin: 0;
+    }
+
+    .leaderboard li {
+      font-size: 0.95rem;
+      color: #aaa;
+      margin: 0.25rem 0;
+    }
+
+    @media(max-width: 500px) {
+      h1 { font-size: 2rem; }
+      .card { padding: 1.5rem; }
+      input, button { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🔥 ChainType</h1>
+
+  <div class="card">
+    <div id="word">Press Start</div>
+    <input id="input" type="text" disabled placeholder="Type here..." autocomplete="off" />
+    <div id="score">Score: 0</div>
+    <button id="start">Start Game</button>
+  </div>
+
+  <div class="leaderboard">
+    <h2>🏆 Leaderboard</h2>
+    <ol id="leaders"></ol>
+  </div>
+
+  <script>
+    const words = ["alpha", "chaos", "keyboard", "space", "magic", "lava", "ghost", "python", "shift", "reactor", "cosmos", "binary", "laser", "flame", "zap", "storm", "echo", "loop"];
+    const input = document.getElementById("input");
+    const wordEl = document.getElementById("word");
+    const scoreEl = document.getElementById("score");
+    const startBtn = document.getElementById("start");
+    const leadersEl = document.getElementById("leaders");
+
+    let currentWord = "";
+    let score = 0;
+    let chain = 0;
+    let timer;
+    let speed = 3000;
+
+    const getRandomWord = () => words[Math.floor(Math.random() * words.length)];
+
+    const loadLeaderboard = () => {
+      const data = JSON.parse(localStorage.getItem("chain-leaderboard") || "[]");
+      leadersEl.innerHTML = "";
+      data.slice(0, 5).forEach(entry => {
+        const li = document.createElement("li");
+        li.textContent = `${entry.name} — ${entry.score}`;
+        leadersEl.appendChild(li);
+      });
+    };
+
+    const saveScore = (score) => {
+      const name = prompt("Your name for the leaderboard:");
+      if (!name) return;
+      const data = JSON.parse(localStorage.getItem("chain-leaderboard") || "[]");
+      data.push({ name, score });
+      data.sort((a, b) => b.score - a.score);
+      localStorage.setItem("chain-leaderboard", JSON.stringify(data));
+      loadLeaderboard();
+    };
+
+    const nextWord = () => {
+      currentWord = getRandomWord();
+      wordEl.textContent = currentWord;
+      input.value = "";
+      clearTimeout(timer);
+      timer = setTimeout(() => endGame(), speed);
+    };
+
+    const startGame = () => {
+      score = 0;
+      chain = 0;
+      speed = 3000;
+      input.disabled = false;
+      input.focus();
+      scoreEl.textContent = "Score: 0";
+      startBtn.style.display = "none";
+      nextWord();
+    };
+
+    const endGame = () => {
+      input.disabled = true;
+      wordEl.textContent = "Game Over!";
+      clearTimeout(timer);
+      startBtn.style.display = "inline-block";
+      saveScore(score);
+    };
+
+    input.addEventListener("input", () => {
+      if (input.value.trim().toLowerCase() === currentWord.toLowerCase()) {
+        score++;
+        chain++;
+        if (chain % 5 === 0 && speed > 1000) speed -= 250;
+        scoreEl.textContent = `Score: ${score}`;
+        nextWord();
+      }
+    });
+
+    startBtn.addEventListener("click", startGame);
+    loadLeaderboard();
+  </script>
+</body>
+</html>
