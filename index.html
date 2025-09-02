@@ -24,14 +24,15 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
     main {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
       flex: 1;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      gap: 1rem;
     }
     textarea {
       width: 100%;
-      height: 100%;
+      flex: 0.5;
       background: #1e293b;
       color: #e2e8f0;
       border: none;
@@ -39,32 +40,21 @@
       font-family: monospace;
       font-size: 1rem;
       padding: 1rem;
+      border-radius: 0.5rem;
       resize: none;
     }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: white;
-    }
-    footer {
-      background: #1e293b;
-      text-align: center;
-      padding: 0.5rem;
-      font-size: 0.9rem;
-      color: #94a3b8;
-    }
-    .controls {
-      position: absolute;
-      top: 70px;
-      left: 10px;
-      display: flex;
-      gap: 0.5rem;
+    .output {
+      flex: 1;
+      background: #f1f5f9;
+      color: #111827;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-y: auto;
     }
     button {
       background: #fbbf24;
       border: none;
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1.2rem;
       font-size: 1rem;
       border-radius: 0.5rem;
       cursor: pointer;
@@ -73,15 +63,17 @@
     button:hover {
       background: #f59e0b;
     }
+    footer {
+      background: #1e293b;
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body>
   <header>🦂 Scorpion Playground</header>
-
-  <div class="controls">
-    <button onclick="runScorpion()">Run</button>
-    <button onclick="resetCode()">Reset</button>
-  </div>
 
   <main>
     <textarea id="editor">say "Hello, World!"
@@ -91,21 +83,26 @@ say "Hi, {name}"
 
 repeat 3
     say "Scorpion rocks!"
-end
-</textarea>
-    <iframe id="preview"></iframe>
+end</textarea>
+
+    <button onclick="runScorpion()">▶ Run Code</button>
+
+    <div class="output" id="output">
+      <h3>Output:</h3>
+      <div id="result"></div>
+    </div>
   </main>
 
-  <footer>Made with 🦂 Scorpion | Runs in your browser</footer>
+  <footer>Made with 🦂 Scorpion | Deployable on Vercel</footer>
 
   <script>
     const editor = document.getElementById("editor");
-    const preview = document.getElementById("preview");
+    const result = document.getElementById("result");
 
     // --- Scorpion Interpreter ---
     function scorpionToJS(code) {
       let js = "";
-      let lines = code.split("\\n");
+      let lines = code.split("\n");
       let indent = 0;
 
       for (let raw of lines) {
@@ -113,44 +110,44 @@ end
 
         if (line.startsWith("say ")) {
           let text = line.replace("say ", "").trim();
-          js += `output(${text});\\n`;
+          js += `output(${text});\n`;
         }
         else if (line.startsWith("set ")) {
           let parts = line.replace("set ", "").split("=");
           let name = parts[0].trim();
           let value = parts[1].trim();
-          js += `let ${name} = ${value};\\n`;
+          js += `let ${name} = ${value};\n`;
         }
         else if (line.startsWith("ask ")) {
-          let match = line.match(/ask\\s+"(.+)"\\s*->\\s*(\\w+)/);
+          let match = line.match(/ask\s+"(.+)"\s*->\s*(\w+)/);
           if (match) {
-            js += `let ${match[2]} = prompt("${match[1]}");\\n`;
+            js += `let ${match[2]} = prompt("${match[1]}");\n`;
           }
         }
         else if (line.startsWith("repeat ")) {
           let times = line.replace("repeat ", "").trim();
-          js += `for (let i=0;i<${times};i++){\\n`;
+          js += `for (let i=0;i<${times};i++){ \n`;
           indent++;
         }
         else if (line.startsWith("if ")) {
           let cond = line.replace("if ", "").trim();
-          js += `if (${cond}){\\n`;
+          js += `if (${cond}){ \n`;
           indent++;
         }
         else if (line.startsWith("else")) {
-          js += `} else {\\n`;
+          js += `} else { \n`;
         }
         else if (line.startsWith("end")) {
           indent--;
-          js += `}\\n`;
-        }
-        else if (line.length > 0) {
-          js += `// Unknown command: ${line}\\n`;
+          js += `}\n`;
         }
       }
 
       return `
-        function output(msg){document.body.insertAdjacentHTML("beforeend","<p>"+msg+"</p>");}
+        function output(msg){
+          document.getElementById("result").insertAdjacentHTML("beforeend","<p>"+msg+"</p>");
+        }
+        document.getElementById("result").innerHTML = "";
         ${js}
       `;
     }
@@ -158,16 +155,14 @@ end
     function runScorpion() {
       const code = editor.value;
       const js = scorpionToJS(code);
-      preview.srcdoc = "<body style='font-family:sans-serif; padding:1rem;'>" +
-                       "<h2>Scorpion Output</h2><script>" + js + "<\\/script></body>";
+      try {
+        new Function(js)();
+      } catch (err) {
+        document.getElementById("result").innerHTML = "<p style='color:red;'>Error: " + err.message + "</p>";
+      }
     }
 
-    function resetCode() {
-      editor.value = 'say "Hello, World!"\\n\\nset name = "Alex"\\nsay "Hi, {name}"\\n\\nrepeat 3\\n    say "Scorpion rocks!"\\nend';
-      runScorpion();
-    }
-
-    // Run default on load
+    // Run on load
     runScorpion();
   </script>
 </body>
@@ -197,14 +192,15 @@ end
       box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
     main {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
       flex: 1;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      gap: 1rem;
     }
     textarea {
       width: 100%;
-      height: 100%;
+      flex: 0.5;
       background: #1e293b;
       color: #e2e8f0;
       border: none;
@@ -212,32 +208,21 @@ end
       font-family: monospace;
       font-size: 1rem;
       padding: 1rem;
+      border-radius: 0.5rem;
       resize: none;
     }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: white;
-    }
-    footer {
-      background: #1e293b;
-      text-align: center;
-      padding: 0.5rem;
-      font-size: 0.9rem;
-      color: #94a3b8;
-    }
-    .controls {
-      position: absolute;
-      top: 70px;
-      left: 10px;
-      display: flex;
-      gap: 0.5rem;
+    .output {
+      flex: 1;
+      background: #f1f5f9;
+      color: #111827;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-y: auto;
     }
     button {
       background: #fbbf24;
       border: none;
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1.2rem;
       font-size: 1rem;
       border-radius: 0.5rem;
       cursor: pointer;
@@ -246,15 +231,17 @@ end
     button:hover {
       background: #f59e0b;
     }
+    footer {
+      background: #1e293b;
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body>
   <header>🦂 Scorpion Playground</header>
-
-  <div class="controls">
-    <button onclick="runScorpion()">Run</button>
-    <button onclick="resetCode()">Reset</button>
-  </div>
 
   <main>
     <textarea id="editor">say "Hello, World!"
@@ -264,21 +251,26 @@ say "Hi, {name}"
 
 repeat 3
     say "Scorpion rocks!"
-end
-</textarea>
-    <iframe id="preview"></iframe>
+end</textarea>
+
+    <button onclick="runScorpion()">▶ Run Code</button>
+
+    <div class="output" id="output">
+      <h3>Output:</h3>
+      <div id="result"></div>
+    </div>
   </main>
 
-  <footer>Made with 🦂 Scorpion | Runs in your browser</footer>
+  <footer>Made with 🦂 Scorpion | Deployable on Vercel</footer>
 
   <script>
     const editor = document.getElementById("editor");
-    const preview = document.getElementById("preview");
+    const result = document.getElementById("result");
 
     // --- Scorpion Interpreter ---
     function scorpionToJS(code) {
       let js = "";
-      let lines = code.split("\\n");
+      let lines = code.split("\n");
       let indent = 0;
 
       for (let raw of lines) {
@@ -286,44 +278,44 @@ end
 
         if (line.startsWith("say ")) {
           let text = line.replace("say ", "").trim();
-          js += `output(${text});\\n`;
+          js += `output(${text});\n`;
         }
         else if (line.startsWith("set ")) {
           let parts = line.replace("set ", "").split("=");
           let name = parts[0].trim();
           let value = parts[1].trim();
-          js += `let ${name} = ${value};\\n`;
+          js += `let ${name} = ${value};\n`;
         }
         else if (line.startsWith("ask ")) {
-          let match = line.match(/ask\\s+"(.+)"\\s*->\\s*(\\w+)/);
+          let match = line.match(/ask\s+"(.+)"\s*->\s*(\w+)/);
           if (match) {
-            js += `let ${match[2]} = prompt("${match[1]}");\\n`;
+            js += `let ${match[2]} = prompt("${match[1]}");\n`;
           }
         }
         else if (line.startsWith("repeat ")) {
           let times = line.replace("repeat ", "").trim();
-          js += `for (let i=0;i<${times};i++){\\n`;
+          js += `for (let i=0;i<${times};i++){ \n`;
           indent++;
         }
         else if (line.startsWith("if ")) {
           let cond = line.replace("if ", "").trim();
-          js += `if (${cond}){\\n`;
+          js += `if (${cond}){ \n`;
           indent++;
         }
         else if (line.startsWith("else")) {
-          js += `} else {\\n`;
+          js += `} else { \n`;
         }
         else if (line.startsWith("end")) {
           indent--;
-          js += `}\\n`;
-        }
-        else if (line.length > 0) {
-          js += `// Unknown command: ${line}\\n`;
+          js += `}\n`;
         }
       }
 
       return `
-        function output(msg){document.body.insertAdjacentHTML("beforeend","<p>"+msg+"</p>");}
+        function output(msg){
+          document.getElementById("result").insertAdjacentHTML("beforeend","<p>"+msg+"</p>");
+        }
+        document.getElementById("result").innerHTML = "";
         ${js}
       `;
     }
@@ -331,16 +323,14 @@ end
     function runScorpion() {
       const code = editor.value;
       const js = scorpionToJS(code);
-      preview.srcdoc = "<body style='font-family:sans-serif; padding:1rem;'>" +
-                       "<h2>Scorpion Output</h2><script>" + js + "<\\/script></body>";
+      try {
+        new Function(js)();
+      } catch (err) {
+        document.getElementById("result").innerHTML = "<p style='color:red;'>Error: " + err.message + "</p>";
+      }
     }
 
-    function resetCode() {
-      editor.value = 'say "Hello, World!"\\n\\nset name = "Alex"\\nsay "Hi, {name}"\\n\\nrepeat 3\\n    say "Scorpion rocks!"\\nend';
-      runScorpion();
-    }
-
-    // Run default on load
+    // Run on load
     runScorpion();
   </script>
 </body>
@@ -370,14 +360,15 @@ end
       box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
     main {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
       flex: 1;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      gap: 1rem;
     }
     textarea {
       width: 100%;
-      height: 100%;
+      flex: 0.5;
       background: #1e293b;
       color: #e2e8f0;
       border: none;
@@ -385,32 +376,21 @@ end
       font-family: monospace;
       font-size: 1rem;
       padding: 1rem;
+      border-radius: 0.5rem;
       resize: none;
     }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: white;
-    }
-    footer {
-      background: #1e293b;
-      text-align: center;
-      padding: 0.5rem;
-      font-size: 0.9rem;
-      color: #94a3b8;
-    }
-    .controls {
-      position: absolute;
-      top: 70px;
-      left: 10px;
-      display: flex;
-      gap: 0.5rem;
+    .output {
+      flex: 1;
+      background: #f1f5f9;
+      color: #111827;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-y: auto;
     }
     button {
       background: #fbbf24;
       border: none;
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1.2rem;
       font-size: 1rem;
       border-radius: 0.5rem;
       cursor: pointer;
@@ -419,15 +399,17 @@ end
     button:hover {
       background: #f59e0b;
     }
+    footer {
+      background: #1e293b;
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body>
   <header>🦂 Scorpion Playground</header>
-
-  <div class="controls">
-    <button onclick="runScorpion()">Run</button>
-    <button onclick="resetCode()">Reset</button>
-  </div>
 
   <main>
     <textarea id="editor">say "Hello, World!"
@@ -437,21 +419,26 @@ say "Hi, {name}"
 
 repeat 3
     say "Scorpion rocks!"
-end
-</textarea>
-    <iframe id="preview"></iframe>
+end</textarea>
+
+    <button onclick="runScorpion()">▶ Run Code</button>
+
+    <div class="output" id="output">
+      <h3>Output:</h3>
+      <div id="result"></div>
+    </div>
   </main>
 
-  <footer>Made with 🦂 Scorpion | Runs in your browser</footer>
+  <footer>Made with 🦂 Scorpion | Deployable on Vercel</footer>
 
   <script>
     const editor = document.getElementById("editor");
-    const preview = document.getElementById("preview");
+    const result = document.getElementById("result");
 
     // --- Scorpion Interpreter ---
     function scorpionToJS(code) {
       let js = "";
-      let lines = code.split("\\n");
+      let lines = code.split("\n");
       let indent = 0;
 
       for (let raw of lines) {
@@ -459,44 +446,44 @@ end
 
         if (line.startsWith("say ")) {
           let text = line.replace("say ", "").trim();
-          js += `output(${text});\\n`;
+          js += `output(${text});\n`;
         }
         else if (line.startsWith("set ")) {
           let parts = line.replace("set ", "").split("=");
           let name = parts[0].trim();
           let value = parts[1].trim();
-          js += `let ${name} = ${value};\\n`;
+          js += `let ${name} = ${value};\n`;
         }
         else if (line.startsWith("ask ")) {
-          let match = line.match(/ask\\s+"(.+)"\\s*->\\s*(\\w+)/);
+          let match = line.match(/ask\s+"(.+)"\s*->\s*(\w+)/);
           if (match) {
-            js += `let ${match[2]} = prompt("${match[1]}");\\n`;
+            js += `let ${match[2]} = prompt("${match[1]}");\n`;
           }
         }
         else if (line.startsWith("repeat ")) {
           let times = line.replace("repeat ", "").trim();
-          js += `for (let i=0;i<${times};i++){\\n`;
+          js += `for (let i=0;i<${times};i++){ \n`;
           indent++;
         }
         else if (line.startsWith("if ")) {
           let cond = line.replace("if ", "").trim();
-          js += `if (${cond}){\\n`;
+          js += `if (${cond}){ \n`;
           indent++;
         }
         else if (line.startsWith("else")) {
-          js += `} else {\\n`;
+          js += `} else { \n`;
         }
         else if (line.startsWith("end")) {
           indent--;
-          js += `}\\n`;
-        }
-        else if (line.length > 0) {
-          js += `// Unknown command: ${line}\\n`;
+          js += `}\n`;
         }
       }
 
       return `
-        function output(msg){document.body.insertAdjacentHTML("beforeend","<p>"+msg+"</p>");}
+        function output(msg){
+          document.getElementById("result").insertAdjacentHTML("beforeend","<p>"+msg+"</p>");
+        }
+        document.getElementById("result").innerHTML = "";
         ${js}
       `;
     }
@@ -504,16 +491,14 @@ end
     function runScorpion() {
       const code = editor.value;
       const js = scorpionToJS(code);
-      preview.srcdoc = "<body style='font-family:sans-serif; padding:1rem;'>" +
-                       "<h2>Scorpion Output</h2><script>" + js + "<\\/script></body>";
+      try {
+        new Function(js)();
+      } catch (err) {
+        document.getElementById("result").innerHTML = "<p style='color:red;'>Error: " + err.message + "</p>";
+      }
     }
 
-    function resetCode() {
-      editor.value = 'say "Hello, World!"\\n\\nset name = "Alex"\\nsay "Hi, {name}"\\n\\nrepeat 3\\n    say "Scorpion rocks!"\\nend';
-      runScorpion();
-    }
-
-    // Run default on load
+    // Run on load
     runScorpion();
   </script>
 </body>
