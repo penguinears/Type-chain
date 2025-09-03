@@ -88,7 +88,7 @@
       <button id="runBtn">▶ Run</button>
       <button id="clearBtn">Clear Output</button>
     </div>
-    <textarea id="editor" placeholder="Write your Scorpion code here..."></textarea>
+    <textarea id="editor" placeholder='Write your Scorpion code here...'>say "Hello, World!"</textarea>
     <div class="output" id="output">Output will appear here…</div>
     <div class="hint">Example: <code>say "Hello, World!"</code></div>
   </main>
@@ -109,6 +109,7 @@
     }
 
     function toTemplate(str) {
+      // Convert "Hello {name}" → `Hello ${name}`
       let inner = str.slice(1, -1);
       inner = inner.replace(/\{([^}]+)\}/g, (_, v) => `\${${v.trim()}}`);
       return "`" + inner + "`";
@@ -125,45 +126,65 @@
         document.getElementById('output').textContent = '';
       `;
       const declared = new Set();
+
       for (let raw of lines) {
         const line = raw.trim();
         if (!line) continue;
 
+        // --- SAY ---
         if (line.startsWith("say ")) {
           const rest = line.slice(4).trim();
-          js += `__print(${rest.startsWith('"') ? toTemplate(rest) : rest});\n`;
-          continue;
-        }
-        if (line.startsWith("set ")) {
-          const [_, name, , ...rhs] = line.split(" ");
-          let val = rhs.join(" ");
-          if (val.startsWith('"')) val = toTemplate(val);
-          if (!declared.has(name)) {
-            js += `let ${name} = ${val};\n`;
-            declared.add(name);
+          if (rest.startsWith('"')) {
+            js += `__print(${toTemplate(rest)});\n`;
           } else {
-            js += `${name} = ${val};\n`;
+            js += `__print(${rest});\n`;
           }
           continue;
         }
+
+        // --- SET ---
+        if (line.startsWith("set ")) {
+          const match = line.match(/^set\s+(\w+)\s*=\s*(.+)$/);
+          if (match) {
+            let name = match[1];
+            let val = match[2].trim();
+            if (val.startsWith('"')) val = toTemplate(val);
+            if (!declared.has(name)) {
+              js += `let ${name} = ${val};\n`;
+              declared.add(name);
+            } else {
+              js += `${name} = ${val};\n`;
+            }
+          }
+          continue;
+        }
+
+        // --- REPEAT ---
         if (line.startsWith("repeat ")) {
           js += `for (let __i=0; __i<${line.slice(7)}; __i++){\n`;
           continue;
         }
+
+        // --- IF ---
         if (line.startsWith("if ")) {
           js += `if (${line.slice(3)}){\n`;
           continue;
         }
+
         if (line === "else") {
           js += `} else {\n`;
           continue;
         }
+
         if (line === "end") {
           js += `}\n`;
           continue;
         }
+
+        // Unknown
         js += `/* Unknown: ${line} */\n`;
       }
+
       return js;
     }
 
@@ -268,7 +289,7 @@
       <button id="runBtn">▶ Run</button>
       <button id="clearBtn">Clear Output</button>
     </div>
-    <textarea id="editor" placeholder="Write your Scorpion code here..."></textarea>
+    <textarea id="editor" placeholder='Write your Scorpion code here...'>say "Hello, World!"</textarea>
     <div class="output" id="output">Output will appear here…</div>
     <div class="hint">Example: <code>say "Hello, World!"</code></div>
   </main>
@@ -289,6 +310,7 @@
     }
 
     function toTemplate(str) {
+      // Convert "Hello {name}" → `Hello ${name}`
       let inner = str.slice(1, -1);
       inner = inner.replace(/\{([^}]+)\}/g, (_, v) => `\${${v.trim()}}`);
       return "`" + inner + "`";
@@ -305,45 +327,65 @@
         document.getElementById('output').textContent = '';
       `;
       const declared = new Set();
+
       for (let raw of lines) {
         const line = raw.trim();
         if (!line) continue;
 
+        // --- SAY ---
         if (line.startsWith("say ")) {
           const rest = line.slice(4).trim();
-          js += `__print(${rest.startsWith('"') ? toTemplate(rest) : rest});\n`;
-          continue;
-        }
-        if (line.startsWith("set ")) {
-          const [_, name, , ...rhs] = line.split(" ");
-          let val = rhs.join(" ");
-          if (val.startsWith('"')) val = toTemplate(val);
-          if (!declared.has(name)) {
-            js += `let ${name} = ${val};\n`;
-            declared.add(name);
+          if (rest.startsWith('"')) {
+            js += `__print(${toTemplate(rest)});\n`;
           } else {
-            js += `${name} = ${val};\n`;
+            js += `__print(${rest});\n`;
           }
           continue;
         }
+
+        // --- SET ---
+        if (line.startsWith("set ")) {
+          const match = line.match(/^set\s+(\w+)\s*=\s*(.+)$/);
+          if (match) {
+            let name = match[1];
+            let val = match[2].trim();
+            if (val.startsWith('"')) val = toTemplate(val);
+            if (!declared.has(name)) {
+              js += `let ${name} = ${val};\n`;
+              declared.add(name);
+            } else {
+              js += `${name} = ${val};\n`;
+            }
+          }
+          continue;
+        }
+
+        // --- REPEAT ---
         if (line.startsWith("repeat ")) {
           js += `for (let __i=0; __i<${line.slice(7)}; __i++){\n`;
           continue;
         }
+
+        // --- IF ---
         if (line.startsWith("if ")) {
           js += `if (${line.slice(3)}){\n`;
           continue;
         }
+
         if (line === "else") {
           js += `} else {\n`;
           continue;
         }
+
         if (line === "end") {
           js += `}\n`;
           continue;
         }
+
+        // Unknown
         js += `/* Unknown: ${line} */\n`;
       }
+
       return js;
     }
 
