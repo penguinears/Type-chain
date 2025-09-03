@@ -1,505 +1,375 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Scorpion Playground 🦂</title>
   <style>
+    :root {
+      --bg:#0f172a; --panel:#1e293b; --accent:#fbbf24; --text:#f1f5f9;
+      --out-bg:#f8fafc; --out-text:#0f172a; --muted:#94a3b8;
+    }
+    * { box-sizing: border-box; }
     body {
-      margin: 0;
-      font-family: "Segoe UI", Tahoma, sans-serif;
-      background: #0f172a;
-      color: #f1f5f9;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column;
     }
     header {
-      background: #1e293b;
-      padding: 1rem;
-      text-align: center;
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #fbbf24;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      background:var(--panel); color:var(--accent); font-weight:700; text-align:center;
+      padding:1rem; box-shadow:0 2px 8px rgba(0,0,0,.35);
     }
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 1rem;
-      gap: 1rem;
-    }
+    main { flex:1; display:flex; flex-direction:column; gap:12px; padding:16px; max-width:1000px; margin:0 auto; width:100%; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     textarea {
-      width: 100%;
-      flex: 0.5;
-      background: #1e293b;
-      color: #e2e8f0;
-      border: none;
-      outline: none;
-      font-family: monospace;
-      font-size: 1rem;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      resize: none;
-    }
-    .output {
-      flex: 1;
-      background: #f1f5f9;
-      color: #111827;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      overflow-y: auto;
+      width:100%; height:40vh; background:var(--panel); color:var(--text);
+      border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:14px;
+      font: 14px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; resize:vertical;
     }
     button {
-      background: #fbbf24;
-      border: none;
-      padding: 0.6rem 1.2rem;
-      font-size: 1rem;
-      border-radius: 0.5rem;
-      cursor: pointer;
-      transition: 0.3s;
+      background:var(--accent); color:#111; border:0; padding:.6rem 1rem; font-weight:600;
+      border-radius:10px; cursor:pointer; transition:transform .05s ease, filter .2s ease;
     }
-    button:hover {
-      background: #f59e0b;
+    button:hover { filter:brightness(0.95); }
+    button:active { transform:translateY(1px); }
+    .output {
+      background:var(--out-bg); color:var(--out-text); border-radius:12px; padding:14px; min-height:30vh;
+      border:1px solid rgba(0,0,0,.08); overflow:auto;
     }
-    footer {
-      background: #1e293b;
-      text-align: center;
-      padding: 0.5rem;
-      font-size: 0.9rem;
-      color: #94a3b8;
-    }
+    .hint { color:var(--muted); font-size:.9rem; }
+    .log { margin:.25rem 0; }
+    .error { color:#b91c1c; white-space:pre-wrap; }
+    footer { text-align:center; color:var(--muted); padding:.75rem; background:var(--panel); font-size:.9rem; }
   </style>
 </head>
 <body>
   <header>🦂 Scorpion Playground</header>
 
   <main>
-    <textarea id="editor">say "Hello, World!"
+    <div class="row">
+      <button id="runBtn">▶ Run</button>
+      <button id="clearBtn" title="Clear output">Clear Output</button>
+    </div>
 
-set name = "Alex"
-say "Hi, {name}"
-
-repeat 3
-    say "Scorpion rocks!"
-end</textarea>
-
-    <button onclick="runScorpion()">▶ Run Code</button>
+    <textarea id="editor" placeholder="Write your Scorpion code here..."></textarea>
 
     <div class="output" id="output">
-      <h3>Output:</h3>
+      <div class="hint">Output will appear here after you press <b>Run</b>.</div>
       <div id="result"></div>
+    </div>
+
+    <div class="hint">
+      Commands supported: <code>say "text"</code>, <code>set name = "value"</code>, <code>ask "Question?" -> var</code>,
+      <code>repeat N ... end</code>, <code>if condition ... else ... end</code>. Use <code>{name}</code> inside quotes to insert variables.
     </div>
   </main>
 
-  <footer>Made with 🦂 Scorpion | Deployable on Vercel</footer>
+  <footer>Made for Vercel · Scorpion v0.1</footer>
 
   <script>
-    const editor = document.getElementById("editor");
-    const result = document.getElementById("result");
+    const editor = document.getElementById('editor');
+    const resultEl = document.getElementById('result');
+    const outputBox = document.getElementById('output');
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
 
-    // --- Scorpion Interpreter ---
+    function clearOutput() { resultEl.innerHTML = ''; }
+    function printLine(html) {
+      const p = document.createElement('div');
+      p.className = 'log';
+      p.innerHTML = html;
+      resultEl.appendChild(p);
+      outputBox.scrollTop = outputBox.scrollHeight;
+    }
+
+    // Convert Scorpion string literal "Hello {name}" -> JS template `Hello ${name}`
+    function quoteToTemplate(q) {
+      // remove surrounding " ... "
+      let inner = q.slice(1, -1);
+      // escape backticks inside the string
+      inner = inner.replace(/`/g, '\\`');
+      // { ... } -> ${ ... }
+      inner = inner.replace(/\{([^}]+)\}/g, (_, expr) => `\${${expr.trim()}}`);
+      return '`' + inner + '`';
+    }
+
+    // Very small Scorpion -> JS translator
     function scorpionToJS(code) {
-      let js = "";
-      let lines = code.split("\n");
-      let indent = 0;
+      const lines = code.split(/\r?\n/);
+      const js = [];
+      const declared = new Set();
+      let openBlocks = 0;
+
+      js.push(`
+        const __out = document.getElementById('result');
+        function output(msg){
+          const p = document.createElement('div');
+          p.className = 'log';
+          p.textContent = (msg===undefined ? 'undefined' : msg);
+          __out.appendChild(p);
+        }
+        __out.innerHTML = '';
+      `);
 
       for (let raw of lines) {
-        let line = raw.trim();
+        const line = raw.trim();
+        if (!line || line.startsWith('#') || line.startsWith('//')) continue;
 
-        if (line.startsWith("say ")) {
-          let text = line.replace("say ", "").trim();
-          js += `output(${text});\n`;
-        }
-        else if (line.startsWith("set ")) {
-          let parts = line.replace("set ", "").split("=");
-          let name = parts[0].trim();
-          let value = parts[1].trim();
-          js += `let ${name} = ${value};\n`;
-        }
-        else if (line.startsWith("ask ")) {
-          let match = line.match(/ask\s+"(.+)"\s*->\s*(\w+)/);
-          if (match) {
-            js += `let ${match[2]} = prompt("${match[1]}");\n`;
+        if (line.startsWith('say ')) {
+          const rest = line.slice(4).trim();
+          if (rest.startsWith('"') && rest.endsWith('"')) {
+            js.push(`output(${quoteToTemplate(rest)});`);
+          } else {
+            js.push(`output(${rest});`);
           }
+          continue;
         }
-        else if (line.startsWith("repeat ")) {
-          let times = line.replace("repeat ", "").trim();
-          js += `for (let i=0;i<${times};i++){ \n`;
-          indent++;
+
+        if (line.startsWith('set ')) {
+          const eq = line.indexOf('=');
+          if (eq === -1) { js.push(`/* invalid set */`); continue; }
+          const name = line.slice(4, eq).trim().replace(/[^\w$]/g,'');
+          let value = line.slice(eq+1).trim();
+          if (value.startsWith('"') && value.endsWith('"')) value = quoteToTemplate(value);
+          if (!declared.has(name)) { js.push(`let ${name} = ${value};`); declared.add(name); }
+          else { js.push(`${name} = ${value};`); }
+          continue;
         }
-        else if (line.startsWith("if ")) {
-          let cond = line.replace("if ", "").trim();
-          js += `if (${cond}){ \n`;
-          indent++;
+
+        if (line.startsWith('ask ')) {
+          const m = line.match(/^ask\s+"(.+)"\s*->\s*([A-Za-z_]\w*)$/);
+          if (m) {
+            const q = m[1].replace(/"/g,'\\"');
+            const v = m[2];
+            if (!declared.has(v)) { js.push(`let ${v} = prompt("${q}") ?? "";`); declared.add(v); }
+            else { js.push(`${v} = prompt("${q}") ?? "";`); }
+          }
+          continue;
         }
-        else if (line.startsWith("else")) {
-          js += `} else { \n`;
+
+        if (line.startsWith('repeat ')) {
+          const times = line.slice(7).trim();
+          js.push(`for (let __i=0; __i<(${times}); __i++){`); openBlocks++; continue;
         }
-        else if (line.startsWith("end")) {
-          indent--;
-          js += `}\n`;
+
+        if (line.startsWith('if ')) {
+          const cond = line.slice(3).trim();
+          js.push(`if (${cond}){`); openBlocks++; continue;
         }
+
+        if (line === 'else') { js.push(`} else {`); continue; }
+
+        if (line === 'end') { js.push(`}`); openBlocks = Math.max(0, openBlocks-1); continue; }
+
+        // Unknown line -> comment
+        js.push(`/* unknown: ${line.replace(/\\*/g,'')} */`);
       }
 
-      return `
-        function output(msg){
-          document.getElementById("result").insertAdjacentHTML("beforeend","<p>"+msg+"</p>");
-        }
-        document.getElementById("result").innerHTML = "";
-        ${js}
-      `;
+      while (openBlocks-- > 0) js.push('}'); // close any unclosed blocks
+      return js.join('\n');
     }
 
     function runScorpion() {
       const code = editor.value;
-      const js = scorpionToJS(code);
       try {
+        const js = scorpionToJS(code);
         new Function(js)();
       } catch (err) {
-        document.getElementById("result").innerHTML = "<p style='color:red;'>Error: " + err.message + "</p>";
+        const e = document.createElement('pre');
+        e.className = 'error';
+        e.textContent = 'Error: ' + err.message;
+        resultEl.appendChild(e);
       }
     }
 
-    // Run on load
-    runScorpion();
+    runBtn.addEventListener('click', runScorpion);
+    clearBtn.addEventListener('click', clearOutput);
   </script>
 </body>
 </html><!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Scorpion Playground 🦂</title>
   <style>
+    :root {
+      --bg:#0f172a; --panel:#1e293b; --accent:#fbbf24; --text:#f1f5f9;
+      --out-bg:#f8fafc; --out-text:#0f172a; --muted:#94a3b8;
+    }
+    * { box-sizing: border-box; }
     body {
-      margin: 0;
-      font-family: "Segoe UI", Tahoma, sans-serif;
-      background: #0f172a;
-      color: #f1f5f9;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column;
     }
     header {
-      background: #1e293b;
-      padding: 1rem;
-      text-align: center;
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #fbbf24;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      background:var(--panel); color:var(--accent); font-weight:700; text-align:center;
+      padding:1rem; box-shadow:0 2px 8px rgba(0,0,0,.35);
     }
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 1rem;
-      gap: 1rem;
-    }
+    main { flex:1; display:flex; flex-direction:column; gap:12px; padding:16px; max-width:1000px; margin:0 auto; width:100%; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     textarea {
-      width: 100%;
-      flex: 0.5;
-      background: #1e293b;
-      color: #e2e8f0;
-      border: none;
-      outline: none;
-      font-family: monospace;
-      font-size: 1rem;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      resize: none;
-    }
-    .output {
-      flex: 1;
-      background: #f1f5f9;
-      color: #111827;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      overflow-y: auto;
+      width:100%; height:40vh; background:var(--panel); color:var(--text);
+      border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:14px;
+      font: 14px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; resize:vertical;
     }
     button {
-      background: #fbbf24;
-      border: none;
-      padding: 0.6rem 1.2rem;
-      font-size: 1rem;
-      border-radius: 0.5rem;
-      cursor: pointer;
-      transition: 0.3s;
+      background:var(--accent); color:#111; border:0; padding:.6rem 1rem; font-weight:600;
+      border-radius:10px; cursor:pointer; transition:transform .05s ease, filter .2s ease;
     }
-    button:hover {
-      background: #f59e0b;
+    button:hover { filter:brightness(0.95); }
+    button:active { transform:translateY(1px); }
+    .output {
+      background:var(--out-bg); color:var(--out-text); border-radius:12px; padding:14px; min-height:30vh;
+      border:1px solid rgba(0,0,0,.08); overflow:auto;
     }
-    footer {
-      background: #1e293b;
-      text-align: center;
-      padding: 0.5rem;
-      font-size: 0.9rem;
-      color: #94a3b8;
-    }
+    .hint { color:var(--muted); font-size:.9rem; }
+    .log { margin:.25rem 0; }
+    .error { color:#b91c1c; white-space:pre-wrap; }
+    footer { text-align:center; color:var(--muted); padding:.75rem; background:var(--panel); font-size:.9rem; }
   </style>
 </head>
 <body>
   <header>🦂 Scorpion Playground</header>
 
   <main>
-    <textarea id="editor">say "Hello, World!"
+    <div class="row">
+      <button id="runBtn">▶ Run</button>
+      <button id="clearBtn" title="Clear output">Clear Output</button>
+    </div>
 
-set name = "Alex"
-say "Hi, {name}"
-
-repeat 3
-    say "Scorpion rocks!"
-end</textarea>
-
-    <button onclick="runScorpion()">▶ Run Code</button>
+    <textarea id="editor" placeholder="Write your Scorpion code here..."></textarea>
 
     <div class="output" id="output">
-      <h3>Output:</h3>
+      <div class="hint">Output will appear here after you press <b>Run</b>.</div>
       <div id="result"></div>
+    </div>
+
+    <div class="hint">
+      Commands supported: <code>say "text"</code>, <code>set name = "value"</code>, <code>ask "Question?" -> var</code>,
+      <code>repeat N ... end</code>, <code>if condition ... else ... end</code>. Use <code>{name}</code> inside quotes to insert variables.
     </div>
   </main>
 
-  <footer>Made with 🦂 Scorpion | Deployable on Vercel</footer>
+  <footer>Made for Vercel · Scorpion v0.1</footer>
 
   <script>
-    const editor = document.getElementById("editor");
-    const result = document.getElementById("result");
+    const editor = document.getElementById('editor');
+    const resultEl = document.getElementById('result');
+    const outputBox = document.getElementById('output');
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
 
-    // --- Scorpion Interpreter ---
+    function clearOutput() { resultEl.innerHTML = ''; }
+    function printLine(html) {
+      const p = document.createElement('div');
+      p.className = 'log';
+      p.innerHTML = html;
+      resultEl.appendChild(p);
+      outputBox.scrollTop = outputBox.scrollHeight;
+    }
+
+    // Convert Scorpion string literal "Hello {name}" -> JS template `Hello ${name}`
+    function quoteToTemplate(q) {
+      // remove surrounding " ... "
+      let inner = q.slice(1, -1);
+      // escape backticks inside the string
+      inner = inner.replace(/`/g, '\\`');
+      // { ... } -> ${ ... }
+      inner = inner.replace(/\{([^}]+)\}/g, (_, expr) => `\${${expr.trim()}}`);
+      return '`' + inner + '`';
+    }
+
+    // Very small Scorpion -> JS translator
     function scorpionToJS(code) {
-      let js = "";
-      let lines = code.split("\n");
-      let indent = 0;
+      const lines = code.split(/\r?\n/);
+      const js = [];
+      const declared = new Set();
+      let openBlocks = 0;
+
+      js.push(`
+        const __out = document.getElementById('result');
+        function output(msg){
+          const p = document.createElement('div');
+          p.className = 'log';
+          p.textContent = (msg===undefined ? 'undefined' : msg);
+          __out.appendChild(p);
+        }
+        __out.innerHTML = '';
+      `);
 
       for (let raw of lines) {
-        let line = raw.trim();
+        const line = raw.trim();
+        if (!line || line.startsWith('#') || line.startsWith('//')) continue;
 
-        if (line.startsWith("say ")) {
-          let text = line.replace("say ", "").trim();
-          js += `output(${text});\n`;
-        }
-        else if (line.startsWith("set ")) {
-          let parts = line.replace("set ", "").split("=");
-          let name = parts[0].trim();
-          let value = parts[1].trim();
-          js += `let ${name} = ${value};\n`;
-        }
-        else if (line.startsWith("ask ")) {
-          let match = line.match(/ask\s+"(.+)"\s*->\s*(\w+)/);
-          if (match) {
-            js += `let ${match[2]} = prompt("${match[1]}");\n`;
+        if (line.startsWith('say ')) {
+          const rest = line.slice(4).trim();
+          if (rest.startsWith('"') && rest.endsWith('"')) {
+            js.push(`output(${quoteToTemplate(rest)});`);
+          } else {
+            js.push(`output(${rest});`);
           }
+          continue;
         }
-        else if (line.startsWith("repeat ")) {
-          let times = line.replace("repeat ", "").trim();
-          js += `for (let i=0;i<${times};i++){ \n`;
-          indent++;
+
+        if (line.startsWith('set ')) {
+          const eq = line.indexOf('=');
+          if (eq === -1) { js.push(`/* invalid set */`); continue; }
+          const name = line.slice(4, eq).trim().replace(/[^\w$]/g,'');
+          let value = line.slice(eq+1).trim();
+          if (value.startsWith('"') && value.endsWith('"')) value = quoteToTemplate(value);
+          if (!declared.has(name)) { js.push(`let ${name} = ${value};`); declared.add(name); }
+          else { js.push(`${name} = ${value};`); }
+          continue;
         }
-        else if (line.startsWith("if ")) {
-          let cond = line.replace("if ", "").trim();
-          js += `if (${cond}){ \n`;
-          indent++;
+
+        if (line.startsWith('ask ')) {
+          const m = line.match(/^ask\s+"(.+)"\s*->\s*([A-Za-z_]\w*)$/);
+          if (m) {
+            const q = m[1].replace(/"/g,'\\"');
+            const v = m[2];
+            if (!declared.has(v)) { js.push(`let ${v} = prompt("${q}") ?? "";`); declared.add(v); }
+            else { js.push(`${v} = prompt("${q}") ?? "";`); }
+          }
+          continue;
         }
-        else if (line.startsWith("else")) {
-          js += `} else { \n`;
+
+        if (line.startsWith('repeat ')) {
+          const times = line.slice(7).trim();
+          js.push(`for (let __i=0; __i<(${times}); __i++){`); openBlocks++; continue;
         }
-        else if (line.startsWith("end")) {
-          indent--;
-          js += `}\n`;
+
+        if (line.startsWith('if ')) {
+          const cond = line.slice(3).trim();
+          js.push(`if (${cond}){`); openBlocks++; continue;
         }
+
+        if (line === 'else') { js.push(`} else {`); continue; }
+
+        if (line === 'end') { js.push(`}`); openBlocks = Math.max(0, openBlocks-1); continue; }
+
+        // Unknown line -> comment
+        js.push(`/* unknown: ${line.replace(/\\*/g,'')} */`);
       }
 
-      return `
-        function output(msg){
-          document.getElementById("result").insertAdjacentHTML("beforeend","<p>"+msg+"</p>");
-        }
-        document.getElementById("result").innerHTML = "";
-        ${js}
-      `;
+      while (openBlocks-- > 0) js.push('}'); // close any unclosed blocks
+      return js.join('\n');
     }
 
     function runScorpion() {
       const code = editor.value;
-      const js = scorpionToJS(code);
       try {
+        const js = scorpionToJS(code);
         new Function(js)();
       } catch (err) {
-        document.getElementById("result").innerHTML = "<p style='color:red;'>Error: " + err.message + "</p>";
+        const e = document.createElement('pre');
+        e.className = 'error';
+        e.textContent = 'Error: ' + err.message;
+        resultEl.appendChild(e);
       }
     }
 
-    // Run on load
-    runScorpion();
-  </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Scorpion Playground 🦂</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: "Segoe UI", Tahoma, sans-serif;
-      background: #0f172a;
-      color: #f1f5f9;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    header {
-      background: #1e293b;
-      padding: 1rem;
-      text-align: center;
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #fbbf24;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    }
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 1rem;
-      gap: 1rem;
-    }
-    textarea {
-      width: 100%;
-      flex: 0.5;
-      background: #1e293b;
-      color: #e2e8f0;
-      border: none;
-      outline: none;
-      font-family: monospace;
-      font-size: 1rem;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      resize: none;
-    }
-    .output {
-      flex: 1;
-      background: #f1f5f9;
-      color: #111827;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      overflow-y: auto;
-    }
-    button {
-      background: #fbbf24;
-      border: none;
-      padding: 0.6rem 1.2rem;
-      font-size: 1rem;
-      border-radius: 0.5rem;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-    button:hover {
-      background: #f59e0b;
-    }
-    footer {
-      background: #1e293b;
-      text-align: center;
-      padding: 0.5rem;
-      font-size: 0.9rem;
-      color: #94a3b8;
-    }
-  </style>
-</head>
-<body>
-  <header>🦂 Scorpion Playground</header>
-
-  <main>
-    <textarea id="editor">say "Hello, World!"
-
-set name = "Alex"
-say "Hi, {name}"
-
-repeat 3
-    say "Scorpion rocks!"
-end</textarea>
-
-    <button onclick="runScorpion()">▶ Run Code</button>
-
-    <div class="output" id="output">
-      <h3>Output:</h3>
-      <div id="result"></div>
-    </div>
-  </main>
-
-  <footer>Made with 🦂 Scorpion | Deployable on Vercel</footer>
-
-  <script>
-    const editor = document.getElementById("editor");
-    const result = document.getElementById("result");
-
-    // --- Scorpion Interpreter ---
-    function scorpionToJS(code) {
-      let js = "";
-      let lines = code.split("\n");
-      let indent = 0;
-
-      for (let raw of lines) {
-        let line = raw.trim();
-
-        if (line.startsWith("say ")) {
-          let text = line.replace("say ", "").trim();
-          js += `output(${text});\n`;
-        }
-        else if (line.startsWith("set ")) {
-          let parts = line.replace("set ", "").split("=");
-          let name = parts[0].trim();
-          let value = parts[1].trim();
-          js += `let ${name} = ${value};\n`;
-        }
-        else if (line.startsWith("ask ")) {
-          let match = line.match(/ask\s+"(.+)"\s*->\s*(\w+)/);
-          if (match) {
-            js += `let ${match[2]} = prompt("${match[1]}");\n`;
-          }
-        }
-        else if (line.startsWith("repeat ")) {
-          let times = line.replace("repeat ", "").trim();
-          js += `for (let i=0;i<${times};i++){ \n`;
-          indent++;
-        }
-        else if (line.startsWith("if ")) {
-          let cond = line.replace("if ", "").trim();
-          js += `if (${cond}){ \n`;
-          indent++;
-        }
-        else if (line.startsWith("else")) {
-          js += `} else { \n`;
-        }
-        else if (line.startsWith("end")) {
-          indent--;
-          js += `}\n`;
-        }
-      }
-
-      return `
-        function output(msg){
-          document.getElementById("result").insertAdjacentHTML("beforeend","<p>"+msg+"</p>");
-        }
-        document.getElementById("result").innerHTML = "";
-        ${js}
-      `;
-    }
-
-    function runScorpion() {
-      const code = editor.value;
-      const js = scorpionToJS(code);
-      try {
-        new Function(js)();
-      } catch (err) {
-        document.getElementById("result").innerHTML = "<p style='color:red;'>Error: " + err.message + "</p>";
-      }
-    }
-
-    // Run on load
-    runScorpion();
+    runBtn.addEventListener('click', runScorpion);
+    clearBtn.addEventListener('click', clearOutput);
   </script>
 </body>
 </html>
